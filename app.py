@@ -8,6 +8,8 @@ from helpers.create_pix_charge import create_pix_charge
 from helpers.fetch_emails import fetch_emails
 from helpers.summarize_email import summarize_email
 from helpers.verify_payment import verify_payment
+from helpers.fetch_emails import authenticate_user
+from helpers.fetch_emails import generate_auth_url, authenticate_user
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -38,13 +40,31 @@ async def pix_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Comando /auth
 async def auth_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat_id
+    auth_url = generate_auth_url()
     await update.message.reply_text(
-        "Clique no link abaixo para autorizar o acesso ao seu Gmail.\n"
-        "Após autorizar, você poderá receber o resumo das newsletters."
+        "Clique no link abaixo para autorizar o acesso ao seu Gmail:\n"
+        f"{auth_url}\n\n"
+        "Após autorizar, copie o código de autenticação exibido e envie-o aqui no chat no formato: /authcode SEU_CODIGO."
     )
-    # Aqui chamamos a função de autenticação (você deve implementar a geração do link OAuth no fetch_emails.py)
-    await update.message.reply_text("Abra o navegador para autenticar. Depois, volte aqui.")
+
+# Comando /authcode
+async def authcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) == 0:
+        await update.message.reply_text(
+            "Por favor, envie o código de autenticação assim: /authcode SEU_CODIGO."
+        )
+        return
+
+    auth_code = context.args[0]
+    try:
+        # Chama a função para autenticar e salvar o token
+        authenticate_user(auth_code)
+        await update.message.reply_text(
+            "Autenticação concluída com sucesso! Use /summarize para ver seus resumos."
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Erro ao autenticar: {str(e)}")
+
 
 # Comando /summarize
 async def summarize_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -74,6 +94,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("pix", pix_command))
     application.add_handler(CommandHandler("auth", auth_command))
+    application.add_handler(CommandHandler("authcode", authcode_command))
     application.add_handler(CommandHandler("summarize", summarize_command))
 
     # Inicie o bot
